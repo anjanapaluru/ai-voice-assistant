@@ -1,0 +1,12 @@
+streamlit
+google-generativeai
+openai-whisper
+edge-tts
+pypdf
+python-dotenv
+soundfile
+librosa
+audio-recorder-streamlit
+numpy
+torch
+scipy

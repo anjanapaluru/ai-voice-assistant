@@ -1,0 +1,27 @@
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# Python cache and compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Local data / user uploads
+generated_audio/
+uploaded_audio/
+uploaded_resume/
+
+# Vector databases
+vectorstore/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# OS files
+.DS_Store
+Thumbs.db
