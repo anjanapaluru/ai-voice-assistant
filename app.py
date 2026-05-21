@@ -13,6 +13,12 @@ from backend.voice_clone import VoiceCloneEngine
 
 load_dotenv()
 
+# --- Ensure Required Directories Exist ---
+os.makedirs("uploaded_resume", exist_ok=True)
+os.makedirs("uploaded_audio", exist_ok=True)
+os.makedirs("generated_audio", exist_ok=True)
+
+
 # --- Page Configuration ---
 st.set_page_config(page_title="AI Voice Clone Interview Bot", page_icon="🎙️", layout="wide")
 
