@@ -11,7 +11,16 @@ class LLMEngine:
             raise ValueError("GOOGLE_API_KEY not found in environment or passed as argument.")
         
         genai.configure(api_key=self.api_key)
-        self.model = genai.GenerativeModel('gemini-1.5-flash') # Using flash for speed
+        # We will try these models in order if one fails
+        self.model_names = [
+            'gemini-1.5-flash',
+            'models/gemini-1.5-flash',
+            'gemini-2.5-flash',
+            'gemini-1.5-pro',
+            'gemini-pro'
+        ]
+        self.current_model_index = 0
+        self.model = genai.GenerativeModel(self.model_names[self.current_model_index])
 
     def generate_response(self, prompt, history=None, resume_text=""):
         """
@@ -31,16 +40,29 @@ class LLMEngine:
         5. Keep responses conversational and suitable for voice output (avoid long lists or complex markdown).
         """
         
-        chat = self.model.start_chat(history=history or [])
-        
-        # Combine system instruction with the prompt for a single turn if no history, 
-        # or just send the prompt if history exists (Gemini handles context)
-        # Note: In a real app, you might want to prepend the system instruction once.
-        
         full_prompt = f"{system_instruction}\n\nUser Question: {prompt}" if not history else prompt
-        
-        response = chat.send_message(full_prompt)
-        return response.text
+
+        # Attempt generation with model fallback
+        last_error = None
+        for i in range(self.current_model_index, len(self.model_names)):
+            model_name = self.model_names[i]
+            try:
+                print(f"Attempting response generation with: {model_name}...")
+                model = genai.GenerativeModel(model_name)
+                chat = model.start_chat(history=history or [])
+                response = chat.send_message(full_prompt)
+                
+                # Remember the successful model index for subsequent calls
+                self.current_model_index = i
+                self.model = model
+                return response.text
+            except Exception as e:
+                print(f"Model {model_name} failed: {str(e)}")
+                last_error = e
+                continue
+                
+        # If all models failed, raise the last exception
+        raise last_error
 
 if __name__ == "__main__":
     # Test

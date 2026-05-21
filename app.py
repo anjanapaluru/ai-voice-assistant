@@ -134,31 +134,50 @@ if audio_bytes:
             f.write(audio_bytes)
         
         # 2. Transcription
-        with st.status("Transcribing question...", expanded=True) as status:
+        with st.status("Processing your interview question...", expanded=True) as status:
+            status.update(label="Transcribing audio question...", state="running")
             question_text = st.session_state.stt_engine.transcribe(question_audio_path)
-            st.write(f"Question: {question_text}")
+            
+            if question_text.startswith("Error transcribing audio:"):
+                st.error(f"⚠️ **Transcription Error:** {question_text.replace('Error transcribing audio:', '').strip()}")
+                st.info("💡 **Tip for Streamlit Cloud:** If you see a 'No such file or directory: ffmpeg' error, please wait a moment while the system installs `ffmpeg` from your `packages.txt` file, or restart your Streamlit App from the developer dashboard.")
+                status.update(label="Transcription Failed", state="error")
+                st.stop()
+                
+            st.write(f"**Transcribed Question:** {question_text}")
             
             # 3. LLM Response
-            status.update(label="Thinking like you...", state="running")
-            # Using only the first sample for cloning in this version for simplicity, 
-            # but ideally XTTS can use multiple or we can pick the best one.
-            response_text = st.session_state.llm_engine.generate_response(
-                question_text, 
-                history=st.session_state.memory.get_history(),
-                resume_text=st.session_state.resume_text
-            )
-            st.write(f"Response Generated.")
+            status.update(label="Thinking like you (generating answer)...", state="running")
+            try:
+                response_text = st.session_state.llm_engine.generate_response(
+                    question_text, 
+                    history=st.session_state.memory.get_history(),
+                    resume_text=st.session_state.resume_text
+                )
+                st.write("**Answer generated successfully!**")
+            except Exception as e:
+                st.error(f"⚠️ **Google Gemini API Error:** {str(e)}")
+                st.info("💡 Please verify that your Google API Key is valid, has permissions for the Gemini API, and that you are not hitting rate limits.")
+                status.update(label="Thinking Failed", state="error")
+                st.stop()
             
-            # 4. Voice Cloning
+            # 4. Voice Cloning / Generation
             status.update(label="Generating cloned voice...", state="running")
-            # Pick first sample
-            ref_wav = os.path.join("uploaded_audio", "sample_0.wav")
-            audio_response_path = st.session_state.voice_engine.generate_voice(
-                response_text, 
-                speaker_wav=ref_wav
-            )
-            
-            status.update(label="Done!", state="complete", expanded=False)
+            try:
+                # Pick first sample
+                ref_wav = os.path.join("uploaded_audio", "sample_0.wav")
+                audio_response_path = st.session_state.voice_engine.generate_voice(
+                    response_text, 
+                    speaker_wav=ref_wav
+                )
+                if not audio_response_path:
+                    raise Exception("Voice generation returned an empty path.")
+                status.update(label="Done!", state="complete", expanded=False)
+            except Exception as e:
+                st.warning(f"⚠️ **Voice Generation Warning:** {str(e)}")
+                st.info("We couldn't generate the cloned voice response, but you can still view the text answer below.")
+                audio_response_path = None
+                status.update(label="Voice Generation Failed", state="complete", expanded=False)
 
         # 5. Update Memory and Session
         st.session_state.memory.add_user_message(question_text)
